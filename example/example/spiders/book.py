@@ -27,8 +27,6 @@ class BookSpider(scrapy.Spider):
         start_url = f'{self.base_url}/page/1'
         logger.info('crawling %s', start_url)
         request = PyppeteerRequest(start_url, callback=self.parse_index, wait_for='.name')
-        d = request_to_dict(request, self)
-        print('d', d)
         yield request
     
     def parse_index(self, response):
@@ -37,7 +35,6 @@ class BookSpider(scrapy.Spider):
         :param response:
         :return:
         """
-        print('re', response.text)
         items = response.css('.item')
         for item in items:
             href = item.css('.top a::attr(href)').extract_first()

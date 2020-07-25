@@ -7,7 +7,6 @@ from scrapy.utils.request import request_fingerprint
 from . import defaults
 from .connection import get_redis_from_settings
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -18,9 +17,9 @@ class RFPDupeFilter(BaseDupeFilter):
     This class can also be used with default Scrapy's scheduler.
 
     """
-
+    
     logger = logger
-
+    
     def __init__(self, server, key, debug=False):
         """Initialize the duplicates filter.
 
@@ -38,7 +37,7 @@ class RFPDupeFilter(BaseDupeFilter):
         self.key = key
         self.debug = debug
         self.logdupes = True
-
+    
     @classmethod
     def from_settings(cls, settings):
         """Returns an instance from given settings.
@@ -66,7 +65,7 @@ class RFPDupeFilter(BaseDupeFilter):
         key = defaults.DUPEFILTER_KEY % {'timestamp': int(time.time())}
         debug = settings.getbool('DUPEFILTER_DEBUG')
         return cls(server, key=key, debug=debug)
-
+    
     @classmethod
     def from_crawler(cls, crawler):
         """Returns instance from crawler.
@@ -82,7 +81,7 @@ class RFPDupeFilter(BaseDupeFilter):
 
         """
         return cls.from_settings(crawler.settings)
-
+    
     def request_seen(self, request):
         """Returns True if request was already seen.
 
@@ -98,8 +97,10 @@ class RFPDupeFilter(BaseDupeFilter):
         fp = self.request_fingerprint(request)
         # This returns the number of values added, zero if already exists.
         added = self.server.sadd(self.key, fp)
+        if added == 0:
+            self.log(request)
         return added == 0
-
+    
     def request_fingerprint(self, request):
         """Returns a fingerprint for a given request.
 
@@ -113,7 +114,7 @@ class RFPDupeFilter(BaseDupeFilter):
 
         """
         return request_fingerprint(request)
-
+    
     @classmethod
     def from_spider(cls, spider):
         settings = spider.settings
@@ -122,7 +123,7 @@ class RFPDupeFilter(BaseDupeFilter):
         key = dupefilter_key % {'spider': spider.name}
         debug = settings.getbool('DUPEFILTER_DEBUG')
         return cls(server, key=key, debug=debug)
-
+    
     def close(self, reason=''):
         """Delete data on close. Called by Scrapy's scheduler.
 
@@ -132,12 +133,12 @@ class RFPDupeFilter(BaseDupeFilter):
 
         """
         self.clear()
-
+    
     def clear(self):
         """Clears fingerprints data."""
         self.server.delete(self.key)
-
-    def log(self, request, spider):
+    
+    def log(self, request, spider=None):
         """Logs given request.
 
         Parameters
