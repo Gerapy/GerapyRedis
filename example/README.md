@@ -1,4 +1,4 @@
-# Gerapy Pyppeteer Example
+# Gerapy Redis Example
 
 ## Run
 
