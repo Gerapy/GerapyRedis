@@ -1,8 +1,16 @@
 version: '3'
 services:
-  gerapy-pyppeteer-example:
-    container_name: 'gerapy-pyppeteer-example'
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '6379:6379'
+  gerapy-redis-example:
+    container_name: 'gerapy-redis-example'
     restart: always
     build: .
-    image: 'germey/gerapy-pyppeteer-example'
-    command: 'python3 run.py'
+    image: 'germey/gerapy-redis-example'
+    command: 'scrapy crawl movie'
+    environment:
+      REDIS_URL: 'redis://@redis:6379'
+    depends_on:
+      - redis

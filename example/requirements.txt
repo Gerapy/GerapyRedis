@@ -1,1 +1,2 @@
-gerapy-pyppeteer
+gerapy-redis
+gerapy_pyppeteer

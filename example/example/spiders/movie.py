@@ -3,7 +3,6 @@ import scrapy
 from scrapy import Request, signals
 from example.items import MovieItem
 import logging
-import scrapy_redis
 
 logger = logging.getLogger(__name__)
 

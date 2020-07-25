@@ -8,6 +8,7 @@
 #     https://docs.scrapy.org/en/latest/topics/settings.html
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+import os
 
 BOT_NAME = 'example'
 
@@ -97,7 +98,7 @@ DUPEFILTER_CLASS = "gerapy_redis.dupefilter.RFPDupeFilter"
 
 SCHEDULER_PERSIST = True
 
-REDIS_URL = 'redis://@localhost:6379'
+REDIS_URL = os.getenv('REDIS_URL', 'redis://@localhost:6379')
 
 DUPEFILTER_DEBUG = True
 
@@ -105,4 +106,4 @@ DOWNLOAD_TIMEOUT = 10
 
 SCHEDULER_FLUSH_ON_START = True
 
-SCHEDULER_PRE_ENQUEUE_ALL_START_REQUESTS = False
+# SCHEDULER_PRE_ENQUEUE_ALL_START_REQUESTS = True
