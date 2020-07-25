@@ -2,18 +2,8 @@
 
 ## Run
 
-There are two ways to run this example:
-
-### Run with Python
+You can run this project with this command:
 
 ```shell script
-pip3 install -r requierments.txt
-pyppeteer-install
-python3 run.py
-```
-
-### Run with Docker
-
-```shell script
-docker run germey/gerapy-pyppeteer-example
+docker-compose up
 ```
