@@ -1,2 +1,2 @@
 gerapy-redis
-gerapy_pyppeteer
+gerapy-pyppeteer
