@@ -1,99 +1,67 @@
 from scrapy.statscollectors import StatsCollector
 from gerapy_redis.connection import from_settings as redis_from_settings
-import re
-from .picklecompat import dumps, loads
-
-
-def load(value):
-    if not value:
-        return None
-    if isinstance(value, bytes):
-        v = value.decode('utf-8')
-        if v.isdigit():
-            return int(v)
-        if re.match('\d+\.\d+', v):
-            return float(v)
-    if isinstance(value, bytes):
-        value = value.decode('utf-8')
-        return loads(value)
-    return value
-
-
-def dump(value):
-    if not value:
-        return None
-    if isinstance(value, (int, float, str)):
-        return value
-    return dumps(value)
+from .defaults import STATS_KEY, SCHEDULER_PERSIST
 
 
 class RedisStatsCollector(StatsCollector):
     """
     Stats Collector based on Redis
     """
-    
+
     def __init__(self, crawler, spider=None):
         super().__init__(crawler)
-        self.redis = redis_from_settings(crawler.settings)
+        self.server = redis_from_settings(crawler.settings)
         self.spider = spider
-    
+        self.spider_name = spider.name if spider else crawler.spidercls.name
+        self.stats_key = crawler.settings.get('STATS_KEY', STATS_KEY)
+        self.persist = crawler.settings.get(
+            'SCHEDULER_PERSIST', SCHEDULER_PERSIST)
+
+    def _get_key(self, spider=None):
+        if spider:
+            self.stats_key % {'spider': spider.name}
+        if self.spider:
+            return self.stats_key % {'spider': self.spider.name}
+        return self.stats_key % {'spider': self.spider_name or 'scrapy'}
+
     @classmethod
-    def from_spider(cls, spider):
-        return cls(spider.crawler, spider)
-    
-    def _get_key(self, key, spider=None):
-        if spider is None:
-            name = '<scrapy>'
-        elif self.spider is not None:
-            name = self.spider.name
-        else:
-            name = spider.name
-        return '%s:stats:%s' % (name, key)
-    
+    def from_crawler(cls, crawler):
+        return cls(crawler)
+
     def get_value(self, key, default=None, spider=None):
-        key = self._get_key(key, spider)
-        value = self.redis.get(key)
-        value = load(value)
-        if value is None:
-            return default
+        if self.server.hexists(self._get_key(spider), key):
+            return int(self.server.hget(self._get_key(spider), key))
         else:
-            return value
-    
+            return default
+
     def get_stats(self, spider=None):
-        keys = self.redis.keys(self._get_key('*', spider))
-        return {k: v for (k, v) in self.redis.mget(*keys)}
-    
+        return self.server.hgetall(self._get_key(spider))
+
     def set_value(self, key, value, spider=None):
-        key = self._get_key(key, spider)
-        value = dump(value)
-        self.redis.set(key, value)
-    
+        self.server.hset(self._get_key(spider), key, value)
+
+    def set_stats(self, stats, spider=None):
+        self.server.hmset(self._get_key(spider), stats)
+
     def inc_value(self, key, count=1, start=0, spider=None):
-        pipe = self.redis.pipeline()
-        key = self._get_key(key, spider)
-        pipe.setnx(key, start)
-        pipe.incrby(key, count)
-        pipe.execute()
-    
+        if not self.server.hexists(self._get_key(spider), key):
+            self.set_value(key, start)
+        self.server.hincrby(self._get_key(spider), key, count)
+
     def max_value(self, key, value, spider=None):
-        key = self._get_key(key, spider)
-        current = self.get_value(key)
-        if current is None or value > current:
-            self.set_value(key, value)
-    
+        self.set_value(key, max(self.get_value(key, value), value))
+
     def min_value(self, key, value, spider=None):
-        key = self._get_key(key, spider)
-        current = self.get_value(key)
-        print('current', current, value)
-        if current is None or value < current:
-            self.set_value(key, value)
-    
+        self.set_value(key, min(self.get_value(key, value), value))
+
     def clear_stats(self, spider=None):
-        keys = self.redis.keys(self._get_key('*', spider))
-        self.redis.delete(*keys)
-    
+        self.server.delete(self._get_key(spider))
+
     def open_spider(self, spider):
-        self.spider = spider
-    
-    def close_spider(self, spider, reason=None):
+        if spider:
+            self.spider = spider
+
+    def close_spider(self, spider, reason):
         self.spider = None
+        if not self.persist:
+            self.clear_stats(spider)
