@@ -1,11 +1,37 @@
 from scrapy.statscollectors import StatsCollector
 from gerapy_redis.connection import from_settings as redis_from_settings
+import re
+from .picklecompat import dumps, loads
+
+
+def load(value):
+    if not value:
+        return None
+    if isinstance(value, bytes):
+        v = value.decode('utf-8')
+        if v.isdigit():
+            return int(v)
+        if re.match('\d+\.\d+', v):
+            return float(v)
+    if isinstance(value, bytes):
+        value = value.decode('utf-8')
+        return loads(value)
+    return value
+
+
+def dump(value):
+    if not value:
+        return None
+    if isinstance(value, (int, float, str)):
+        return value
+    return dumps(value)
 
 
 class RedisStatsCollector(StatsCollector):
     """
     Stats Collector based on Redis
     """
+    
     def __init__(self, crawler, spider=None):
         super().__init__(crawler)
         self.redis = redis_from_settings(crawler.settings)
@@ -22,12 +48,12 @@ class RedisStatsCollector(StatsCollector):
             name = self.spider.name
         else:
             name = spider.name
-        
         return '%s:stats:%s' % (name, key)
     
     def get_value(self, key, default=None, spider=None):
         key = self._get_key(key, spider)
         value = self.redis.get(key)
+        value = load(value)
         if value is None:
             return default
         else:
@@ -39,6 +65,7 @@ class RedisStatsCollector(StatsCollector):
     
     def set_value(self, key, value, spider=None):
         key = self._get_key(key, spider)
+        value = dump(value)
         self.redis.set(key, value)
     
     def inc_value(self, key, count=1, start=0, spider=None):
@@ -50,17 +77,16 @@ class RedisStatsCollector(StatsCollector):
     
     def max_value(self, key, value, spider=None):
         key = self._get_key(key, spider)
-        pipe = self.redis.pipeline()
-        pipe.zadd(key, value, value)
-        pipe.zremrangebyrank(key, 0, -2)
-        pipe.execute()
+        current = self.get_value(key)
+        if current is None or value > current:
+            self.set_value(key, value)
     
     def min_value(self, key, value, spider=None):
         key = self._get_key(key, spider)
-        pipe = self.redis.pipeline()
-        pipe.zadd(key, value, value)
-        pipe.zremrangebyrank(key, 2, -1)
-        pipe.execute()
+        current = self.get_value(key)
+        print('current', current, value)
+        if current is None or value < current:
+            self.set_value(key, value)
     
     def clear_stats(self, spider=None):
         keys = self.redis.keys(self._get_key('*', spider))
