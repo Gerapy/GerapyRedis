@@ -1,6 +1,7 @@
 from scrapy.statscollectors import StatsCollector
 from gerapy_redis.connection import from_settings as redis_from_settings
 from .defaults import STATS_KEY, SCHEDULER_PERSIST
+from datetime import datetime
 
 
 class RedisStatsCollector(StatsCollector):
@@ -38,6 +39,8 @@ class RedisStatsCollector(StatsCollector):
         return self.server.hgetall(self._get_key(spider))
 
     def set_value(self, key, value, spider=None):
+        if isinstance(value, datetime):
+            value = value.timestamp()
         self.server.hset(self._get_key(spider), key, value)
 
     def set_stats(self, stats, spider=None):
